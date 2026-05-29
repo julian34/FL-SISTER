@@ -35,9 +35,10 @@ CONFIG = {
     "local_epochs":       500,
     "learning_rate":   0.01,
     "batch_size":        32,
-    "input_dim":         5,
+    "input_dim":         10,
     "samples_per_client": 600,
     "n_test":            300,
+    "pretrain_epochs":   50,
 }
 
 
@@ -82,6 +83,18 @@ def main() -> None:
     m0 = server.evaluate(X_test_s, y_test)
     print(f"  [Server] Global model ready  (random init)")
     print(f"  [Server] Baseline accuracy on test set : {m0['accuracy']:.4f}")
+
+    print(f"  [Server] Pre-training on server data ({CONFIG['pretrain_epochs']} epochs)...")
+    pt = server.pretrain(
+        X_test_s, y_test,
+        epochs=CONFIG["pretrain_epochs"],
+        lr=CONFIG["learning_rate"],
+        batch_size=CONFIG["batch_size"],
+    )
+    print(f"  [Server] Pre-training done  "
+          f"loss {pt['initial_loss']:.4f} → {pt['final_loss']:.4f}")
+    m1 = server.evaluate(X_test_s, y_test)
+    print(f"  [Server] Accuracy after pre-training    : {m1['accuracy']:.4f}  (pre-trained)")
 
     # ── 3. Clients ─────────────────────────────────────────────────────────
     print(_header("STEP 3  ·  Initialize Clients", "─"))

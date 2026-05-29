@@ -3,9 +3,12 @@ import os
 import threading
 from typing import Any
 
+import numpy as np
+import pandas as pd
 import torch
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from sklearn.preprocessing import StandardScaler
 
 from fl_server import FederatedServer
 from model_io import state_dict_to_payload, payload_to_state_dict
@@ -14,6 +17,8 @@ from model_io import state_dict_to_payload, payload_to_state_dict
 NUM_CLIENTS = int(os.getenv("NUM_CLIENTS", "2"))
 N_ROUNDS = int(os.getenv("N_ROUNDS", "10"))
 INPUT_DIM = int(os.getenv("INPUT_DIM", "10"))
+PRETRAIN_EPOCHS = int(os.getenv("PRETRAIN_EPOCHS", "50"))
+PRETRAIN_DATA_PATH = os.getenv("PRETRAIN_DATA_PATH", "data/test_data.csv")
 
 app = FastAPI(title="Federated Learning Scam Detection Server")
 
@@ -22,6 +27,24 @@ lock = threading.Lock()
 submissions: dict[int, dict[str, dict]] = {}
 
 os.makedirs("checkpoints", exist_ok=True)
+
+# ── Server pre-training on startup ─────────────────────────────────────────
+if PRETRAIN_EPOCHS > 0 and os.path.exists(PRETRAIN_DATA_PATH):
+    print(f"[Server] Loading pre-training data from: {PRETRAIN_DATA_PATH}")
+    _df = pd.read_csv(PRETRAIN_DATA_PATH)
+    _X = _df.drop(columns=["label"]).values.astype(np.float32)
+    _y = _df["label"].values.astype(np.float32)
+    _scaler = StandardScaler()
+    _X_scaled = _scaler.fit_transform(_X).astype(np.float32)
+    print(f"[Server] Pre-training global model ({PRETRAIN_EPOCHS} epochs, {len(_X)} samples)...")
+    _pt = server.pretrain(_X_scaled, _y, epochs=PRETRAIN_EPOCHS, lr=0.01, batch_size=32)
+    print(f"[Server] Pre-training done  loss {_pt['initial_loss']:.4f} → {_pt['final_loss']:.4f}")
+    torch.save(server.global_model.state_dict(), "checkpoints/global_init.pt")
+    print("[Server] Initial checkpoint saved: checkpoints/global_init.pt")
+else:
+    print(f"[Server] Pre-training skipped (PRETRAIN_EPOCHS={PRETRAIN_EPOCHS}, "
+          f"data exists={os.path.exists(PRETRAIN_DATA_PATH)})")
+
 
 
 class ClientUpdate(BaseModel):

@@ -10,6 +10,8 @@ FedAvg (McMahan et al., 2017)
 
 import copy
 import torch
+import torch.nn as nn
+import torch.optim as optim
 import numpy as np
 
 from model import ScamDetector
@@ -27,6 +29,74 @@ class FederatedServer:
     def get_global_weights(self) -> dict:
         """Return a copy of the current global weights for clients."""
         return copy.deepcopy(self.global_model.state_dict())
+
+    # ------------------------------------------------------------------
+    # Pre-train on server-side data (warm-start before FL rounds)
+    # ------------------------------------------------------------------
+    def pretrain(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        epochs: int = 50,
+        lr: float = 0.01,
+        batch_size: int = 32,
+    ) -> dict:
+        """
+        Train the global model on server-held data before the first FL round.
+        This gives clients a better starting point than random initialization.
+
+        Parameters
+        ----------
+        X          : feature matrix (float32 numpy array)
+        y          : labels (float32 numpy array)
+        epochs     : number of training epochs
+        lr         : learning rate for Adam optimizer
+        batch_size : mini-batch size
+
+        Returns
+        -------
+        dict with keys: initial_loss, final_loss, epochs
+        """
+        self.global_model.train()
+        criterion = nn.BCELoss()
+        optimizer = optim.Adam(self.global_model.parameters(), lr=lr)
+
+        X_t = torch.tensor(X, dtype=torch.float32)
+        y_t = torch.tensor(y, dtype=torch.float32)
+
+        n = len(X_t)
+        initial_loss = None
+        final_loss = None
+
+        for epoch in range(epochs):
+            perm = torch.randperm(n)
+            epoch_loss = 0.0
+            batches = 0
+
+            for start in range(0, n, batch_size):
+                idx = perm[start:start + batch_size]
+                xb, yb = X_t[idx], y_t[idx]
+
+                optimizer.zero_grad()
+                preds = self.global_model(xb).squeeze()
+                loss = criterion(preds, yb)
+                loss.backward()
+                optimizer.step()
+
+                epoch_loss += loss.item()
+                batches += 1
+
+            avg_loss = epoch_loss / max(batches, 1)
+            if epoch == 0:
+                initial_loss = avg_loss
+            final_loss = avg_loss
+
+        self.global_model.eval()
+        return {
+            "initial_loss": initial_loss,
+            "final_loss": final_loss,
+            "epochs": epochs,
+        }
 
     # ------------------------------------------------------------------
     # Aggregate  (FedAvg)
