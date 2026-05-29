@@ -18,6 +18,8 @@
 10. [Konfigurasi Parameter Training](#10-konfigurasi-parameter-training)
 11. [Generate Ulang Data](#11-generate-ulang-data)
 12. [Troubleshooting](#12-troubleshooting)
+13. [Docker — Menjalankan via Container](#13-docker--menjalankan-via-container)
+14. [Docker — Menjalankan via Container](#13-docker--menjalankan-via-container)
 
 ---
 
@@ -25,11 +27,11 @@
 
 Pastikan tools berikut sudah terinstal sebelum memulai:
 
-| Tool | Versi Minimum | Cek Versi |
-|------|---------------|-----------|
-| Python | 3.9+ | `python --version` |
-| pip | terbaru | `pip --version` |
-| ngrok *(opsional)* | v3+ | `ngrok version` |
+| Tool               | Versi Minimum | Cek Versi          |
+| ------------------ | ------------- | ------------------ |
+| Python             | 3.9+          | `python --version` |
+| pip                | terbaru       | `pip --version`    |
+| ngrok _(opsional)_ | v3+           | `ngrok version`    |
 
 > **Windows:** Pastikan Python sudah ditambahkan ke `PATH` saat instalasi. Jika perintah `python` tidak dikenali, coba `py` sebagai penggantinya.
 
@@ -84,10 +86,12 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-> Jika muncul error *"execution of scripts is disabled"*, jalankan dulu:
+> Jika muncul error _"execution of scripts is disabled"_, jalankan dulu:
+>
 > ```powershell
 > Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 > ```
+>
 > lalu ulangi perintah aktivasi.
 
 **Windows (Command Prompt):**
@@ -120,14 +124,14 @@ pip install -r requirements.txt
 
 Paket yang akan diinstal:
 
-| Paket | Kegunaan |
-|-------|----------|
-| `torch` | Neural network (ScamDetector model) |
-| `numpy` | Operasi array numerik |
-| `pandas` | Baca/tulis data CSV |
-| `scikit-learn` | Metrik evaluasi (accuracy, F1) |
-| `fastapi` | HTTP API framework |
-| `uvicorn` | ASGI server untuk FastAPI |
+| Paket          | Kegunaan                            |
+| -------------- | ----------------------------------- |
+| `torch`        | Neural network (ScamDetector model) |
+| `numpy`        | Operasi array numerik               |
+| `pandas`       | Baca/tulis data CSV                 |
+| `scikit-learn` | Metrik evaluasi (accuracy, F1)      |
+| `fastapi`      | HTTP API framework                  |
+| `uvicorn`      | ASGI server untuk FastAPI           |
 
 Verifikasi instalasi berhasil:
 
@@ -189,11 +193,11 @@ Mode ini menjalankan server HTTP sehingga training bisa dipicu via request dari 
 uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-| Flag | Keterangan |
-|------|------------|
+| Flag             | Keterangan                                            |
+| ---------------- | ----------------------------------------------------- |
 | `--host 0.0.0.0` | Terima koneksi dari semua interface (LAN & localhost) |
-| `--port 8000` | Port yang digunakan |
-| `--reload` | Auto-restart saat ada perubahan kode *(development)* |
+| `--port 8000`    | Port yang digunakan                                   |
+| `--reload`       | Auto-restart saat ada perubahan kode _(development)_  |
 
 ### Verifikasi server berjalan
 
@@ -220,7 +224,7 @@ curl http://127.0.0.1:8000/health
 Respons yang diharapkan:
 
 ```json
-{"status": "ok"}
+{ "status": "ok" }
 ```
 
 ### 7.2 Trigger Training
@@ -307,7 +311,7 @@ Dari perangkat lain yang terhubung ke WiFi yang sama, buka browser dan akses:
 http://192.168.1.10:8000/health
 ```
 
-*(Ganti `192.168.1.10` dengan IP lokal aktual dari Langkah 1)*
+_(Ganti `192.168.1.10` dengan IP lokal aktual dari Langkah 1)_
 
 ---
 
@@ -392,14 +396,14 @@ CONFIG = {
 
 ### Penjelasan parameter
 
-| Parameter | Default | Keterangan |
-|-----------|---------|------------|
-| `n_rounds` | `10` | Semakin banyak round → akurasi lebih tinggi, waktu lebih lama |
-| `local_epochs` | `5` | Epoch training di masing-masing client sebelum kirim bobot |
-| `learning_rate` | `0.01` | Step size optimizer Adam |
-| `batch_size` | `32` | Jumlah sampel per batch gradient descent |
-| `samples_per_client` | `600` | Total data per client (non-IID split) |
-| `n_test` | `300` | Ukuran dataset evaluasi global |
+| Parameter            | Default | Keterangan                                                    |
+| -------------------- | ------- | ------------------------------------------------------------- |
+| `n_rounds`           | `10`    | Semakin banyak round → akurasi lebih tinggi, waktu lebih lama |
+| `local_epochs`       | `5`     | Epoch training di masing-masing client sebelum kirim bobot    |
+| `learning_rate`      | `0.01`  | Step size optimizer Adam                                      |
+| `batch_size`         | `32`    | Jumlah sampel per batch gradient descent                      |
+| `samples_per_client` | `600`   | Total data per client (non-IID split)                         |
+| `n_test`             | `300`   | Ukuran dataset evaluasi global                                |
 
 ---
 
@@ -417,11 +421,11 @@ python data_generator.py
 
 File yang akan dibuat ulang di folder `data/`:
 
-| File | Deskripsi |
-|------|-----------|
-| `client1_data.csv` | Data SMS-like (~600 baris) untuk Client 1 |
+| File               | Deskripsi                                   |
+| ------------------ | ------------------------------------------- |
+| `client1_data.csv` | Data SMS-like (~600 baris) untuk Client 1   |
 | `client2_data.csv` | Data Email-like (~600 baris) untuk Client 2 |
-| `test_data.csv` | Dataset evaluasi global (~300 baris) |
+| `test_data.csv`    | Dataset evaluasi global (~300 baris)        |
 
 ---
 
@@ -500,4 +504,230 @@ ngrok http 8000
 
 ---
 
-*Panduan ini mencakup semua langkah untuk menjalankan proyek secara manual tanpa Docker.*
+## 13. Docker — Menjalankan via Container
+
+Proyek ini menyediakan dua file Docker Compose terpisah:
+
+| File                        | Peran                                         |
+| --------------------------- | --------------------------------------------- |
+| `docker-compose.server.yml` | Menjalankan FL Server + API (`server_api.py`) |
+| `docker-compose.client.yml` | Menjalankan FL Client (`client_worker.py`)    |
+
+---
+
+### 13.1 Build Image
+
+Build image Docker dari `Dockerfile` di root project:
+
+```powershell
+docker build -t fl-scam-api .
+```
+
+Verifikasi image berhasil dibuat:
+
+```powershell
+docker images
+```
+
+---
+
+### 13.2 Menjalankan Server
+
+Jalankan FL Server beserta API-nya:
+
+```powershell
+docker compose -f docker-compose.server.yml up -d --build
+```
+
+| Flag                           | Keterangan                             |
+| ------------------------------ | -------------------------------------- |
+| `-f docker-compose.server.yml` | Tentukan file compose yang digunakan   |
+| `up`                           | Buat dan jalankan container            |
+| `-d`                           | Jalankan di background (detached mode) |
+| `--build`                      | Rebuild image sebelum menjalankan      |
+
+Cek server berjalan:
+
+```powershell
+curl http://127.0.0.1:8000/health
+```
+
+---
+
+### 13.3 Menjalankan Client
+
+Setiap client dijalankan dengan variabel environment `CLIENT_ID`, `SERVER_URL`, dan `DATA_PATH`.
+
+**Client 1:**
+
+```powershell
+$env:CLIENT_ID = "1"
+$env:SERVER_URL = "http://fl-scam-api:8000"
+$env:DATA_PATH  = "/app/data/client1_data.csv"
+docker compose -f docker-compose.client.yml up -d --build
+```
+
+**Client 2** (terminal baru):
+
+```powershell
+$env:CLIENT_ID = "2"
+$env:SERVER_URL = "http://fl-scam-api:8000"
+$env:DATA_PATH  = "/app/data/client2_data.csv"
+docker compose -f docker-compose.client.yml up -d --build
+```
+
+> **Catatan:** `SERVER_URL` menggunakan nama service `fl-scam-api` (bukan `localhost`) agar komunikasi antar container berjalan melalui jaringan Docker internal.
+
+---
+
+### 13.4 Melihat Status Container
+
+Daftar semua container yang sedang berjalan:
+
+```powershell
+docker ps
+```
+
+Daftar semua container (termasuk yang sudah berhenti):
+
+```powershell
+docker ps -a
+```
+
+Contoh output:
+
+```
+CONTAINER ID   IMAGE          COMMAND                  STATUS         PORTS                    NAMES
+a1b2c3d4e5f6   fl-scam-api    "uvicorn server_api:…"   Up 2 minutes   0.0.0.0:8000->8000/tcp   fl-scam-api
+```
+
+---
+
+### 13.5 Melihat Log Container
+
+Log server secara real-time:
+
+```powershell
+docker logs -f fl-scam-api
+```
+
+Log client tertentu:
+
+```powershell
+docker logs -f fl_client_1
+docker logs -f fl_client_2
+```
+
+Log sejumlah baris terakhir saja:
+
+```powershell
+docker logs --tail 50 fl-scam-api
+```
+
+---
+
+### 13.6 Menghentikan dan Menghapus Container
+
+Hentikan container server:
+
+```powershell
+docker compose -f docker-compose.server.yml down
+```
+
+Hentikan container client:
+
+```powershell
+docker compose -f docker-compose.client.yml down
+```
+
+Hentikan satu container secara manual:
+
+```powershell
+docker stop fl-scam-api
+docker stop fl_client_1
+```
+
+Hapus container yang sudah berhenti:
+
+```powershell
+docker rm fl-scam-api
+docker rm fl_client_1
+```
+
+Hentikan dan hapus sekaligus (termasuk network):
+
+```powershell
+docker compose -f docker-compose.server.yml down --remove-orphans
+docker compose -f docker-compose.client.yml down --remove-orphans
+```
+
+---
+
+### 13.7 Menghapus Image
+
+Hapus image yang tidak diperlukan:
+
+```powershell
+docker rmi fl-scam-api
+```
+
+Hapus semua image yang tidak digunakan sekaligus (prune):
+
+```powershell
+docker image prune -a
+```
+
+---
+
+### 13.8 Melihat Penggunaan Resource
+
+Statistik CPU, RAM, dan network container secara live:
+
+```powershell
+docker stats
+```
+
+Untuk container tertentu saja:
+
+```powershell
+docker stats fl-scam-api
+```
+
+---
+
+### 13.9 Masuk ke Shell Container (Debugging)
+
+Membuka shell interaktif di dalam container yang sedang berjalan:
+
+```powershell
+docker exec -it fl-scam-api /bin/bash
+```
+
+Keluar dari shell container:
+
+```bash
+exit
+```
+
+---
+
+### 13.10 Ringkasan Perintah Docker
+
+| Perintah                                                    | Kegunaan                           |
+| ----------------------------------------------------------- | ---------------------------------- |
+| `docker build -t fl-scam-api .`                             | Build image dari Dockerfile        |
+| `docker compose -f docker-compose.server.yml up -d --build` | Jalankan server di background      |
+| `docker compose -f docker-compose.client.yml up -d --build` | Jalankan client di background      |
+| `docker ps`                                                 | Lihat container yang berjalan      |
+| `docker ps -a`                                              | Lihat semua container              |
+| `docker logs -f <nama>`                                     | Ikuti log container secara live    |
+| `docker stop <nama>`                                        | Hentikan container                 |
+| `docker rm <nama>`                                          | Hapus container                    |
+| `docker rmi fl-scam-api`                                    | Hapus image                        |
+| `docker stats`                                              | Monitor resource container         |
+| `docker exec -it <nama> /bin/bash`                          | Masuk ke shell container           |
+| `docker compose … down`                                     | Hentikan & hapus container+network |
+
+---
+
+_Panduan ini mencakup semua langkah untuk menjalankan proyek secara manual maupun via Docker._
