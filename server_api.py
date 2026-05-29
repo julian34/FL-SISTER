@@ -9,6 +9,8 @@ import torch
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sklearn.preprocessing import StandardScaler
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Gauge
 
 from fl_server import FederatedServer
 from model_io import state_dict_to_payload, payload_to_state_dict
@@ -21,6 +23,30 @@ PRETRAIN_EPOCHS = int(os.getenv("PRETRAIN_EPOCHS", "50"))
 PRETRAIN_DATA_PATH = os.getenv("PRETRAIN_DATA_PATH", "data/test_data.csv")
 
 app = FastAPI(title="Federated Learning Scam Detection Server")
+
+Instrumentator().instrument(app).expose(app)
+
+CLIENT_UPDATE_TOTAL = Counter(
+    "fl_client_update_total",
+    "Total update yang dikirim client ke FL server",
+    ["client_id", "round"]
+)
+
+CLIENT_LOSS = Gauge(
+    "fl_client_loss",
+    "Loss terakhir dari setiap client",
+    ["client_id"]
+)
+
+FL_COLLECTED_UPDATES = Gauge(
+    "fl_collected_updates",
+    "Jumlah update client yang sudah terkumpul pada round aktif"
+)
+
+FL_COMPLETED_ROUND = Gauge(
+    "fl_completed_round",
+    "Round federated learning yang sudah selesai"
+)
 
 server = FederatedServer(input_dim=INPUT_DIM)
 lock = threading.Lock()
@@ -137,6 +163,16 @@ def submit_update(update: ClientUpdate):
             "loss": update.loss,
         }
 
+        CLIENT_UPDATE_TOTAL.labels(
+            client_id=update.client_id,
+            round=str(update.round)
+        ).inc()
+
+        if update.loss is not None:
+            CLIENT_LOSS.labels(client_id=update.client_id).set(update.loss)
+
+        FL_COLLECTED_UPDATES.set(len(round_bucket))
+
         aggregated = False
 
         if len(round_bucket) >= NUM_CLIENTS:
@@ -150,6 +186,8 @@ def submit_update(update: ClientUpdate):
 
             checkpoint_path = f"checkpoints/global_round_{server.round}.pt"
             torch.save(server.global_model.state_dict(), checkpoint_path)
+
+            FL_COMPLETED_ROUND.set(server.round)
 
             del submissions[update.round]
 

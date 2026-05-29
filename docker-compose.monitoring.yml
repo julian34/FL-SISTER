@@ -1,0 +1,31 @@
+services:
+  fl-scam-api:
+    build: .
+    container_name: fl-scam-api
+    command: uvicorn server_api:app --host 0.0.0.0 --port 8000
+    environment:
+      NUM_CLIENTS: 2
+      N_ROUNDS: 10
+      INPUT_DIM: 10
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./checkpoints:/app/checkpoints
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fl-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - fl-scam-api
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: fl-grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
