@@ -1,8 +1,53 @@
-# Federated Learning for Scam Detection
+# FL-Sc — Federated Learning for Scam Detection
 
-Hands-on simulasi **Federated Learning** (FedAvg) untuk klasifikasi pesan scam dengan **1 Global Server** dan **2 Client** — semua berjalan dalam satu proses Python tanpa framework FL eksternal.
+> Simulasi **Federated Learning** berbasis **FedAvg** untuk klasifikasi pesan scam menggunakan **1 Global Server** dan **2 Client** — dijalankan dengan Python, FastAPI, PyTorch, Docker, dan Ngrok.
 
-## Arsitektur
+**Sumber asli:** [https://github.com/3k0sakti/FL-Sc](https://github.com/3k0sakti/FL-Sc)
+
+---
+
+## Daftar Isi
+
+1. [Gambaran Umum](#1-gambaran-umum)
+2. [Technology Stack](#2-technology-stack)
+3. [Arsitektur Sistem](#3-arsitektur-sistem)
+4. [Struktur Proyek](#4-struktur-proyek)
+5. [Dokumentasi Lengkap](#5-dokumentasi-lengkap)
+6. [Quickstart](#6-quickstart)
+7. [Endpoint API](#7-endpoint-api)
+8. [Lisensi & Atribusi](#8-lisensi--atribusi)
+
+---
+
+## 1. Gambaran Umum
+
+**FL-Sc** adalah implementasi simulasi Federated Learning untuk mendeteksi pesan scam. Model neural network dilatih secara terdistribusi pada setiap client menggunakan data lokal masing-masing. Server hanya menerima bobot model hasil training — **data mentah tidak pernah meninggalkan client**.
+
+Konsep inti:
+
+```
+Data tetap di client  →  Client training lokal  →  Kirim bobot ke server
+Server agregasi (FedAvg)  →  Model global diperbarui  →  Round berikutnya
+```
+
+---
+
+## 2. Technology Stack
+
+| Komponen             | Teknologi                   | Fungsi                                 |
+| -------------------- | --------------------------- | -------------------------------------- |
+| Programming Language | Python                      | Implementasi model, server, dan client |
+| API Framework        | FastAPI                     | Menyediakan endpoint FL server         |
+| ML Framework         | PyTorch                     | Pelatihan model neural network         |
+| Data Processing      | Pandas, NumPy, Scikit-learn | Preprocessing dan normalisasi data     |
+| Containerization     | Docker, Docker Compose      | Menjalankan service secara terisolasi  |
+| Monitoring           | Prometheus                  | Mengambil dan menyimpan metrik         |
+| Dashboard            | Grafana                     | Visualisasi metrik                     |
+| Public Access        | Ngrok                       | Membuka akses server lokal ke internet |
+
+---
+
+## 3. Arsitektur Sistem
 
 ```
 ┌─────────────┐        weights        ┌──────────────────┐
@@ -18,49 +63,103 @@ Hands-on simulasi **Federated Learning** (FedAvg) untuk klasifikasi pesan scam d
 
 > **Privacy guarantee:** data mentah tidak pernah meninggalkan client — hanya bobot model yang dikirim ke server.
 
-## Struktur Proyek
+---
+
+## 4. Struktur Proyek
 
 ```
-fl-scam/
-├── model.py            # ScamDetector neural network
-├── data_generator.py   # Pembuat data sintetis, split non-IID ke 2 client
-├── fl_client.py        # FederatedClient — training lokal + kirim bobot
-├── fl_server.py        # FederatedServer — FedAvg aggregation
-├── main.py             # Orkestrator utama
+FL-Sc/
+├── model.py                    # ScamDetector neural network (PyTorch)
+├── data_generator.py           # Pembuat dataset sintetis non-IID
+├── fl_client.py                # FederatedClient — training lokal
+├── fl_server.py                # FederatedServer — FedAvg aggregation
+├── main.py                     # Orkestrator simulasi FL
+├── api.py                      # FastAPI server endpoint
+├── server_api.py               # Logika server untuk API
+├── fl_runner.py                # Runner FL via API
+├── client_worker.py            # Worker proses client
+├── model_io.py                 # Utilitas simpan/muat model
 ├── requirements.txt
-└── data/               # Di-generate otomatis saat run
+├── Dockerfile
+├── docker-compose.server.yml   # Compose untuk server FL
+├── docker-compose.client.yml   # Compose untuk client FL
+├── docker-compose.monitoring.yml # Compose untuk Prometheus & Grafana
+├── monitoring/
+│   └── prometheus.yml          # Konfigurasi scraping Prometheus
+└── data/                       # Di-generate otomatis saat run
     ├── client1_data.csv
     ├── client2_data.csv
     └── test_data.csv
 ```
 
-## Instalasi
+---
+
+## 5. Dokumentasi Lengkap
+
+Panduan lengkap tersedia dalam file berikut:
+
+| Dokumen                                    | Deskripsi                                                                         |
+| ------------------------------------------ | --------------------------------------------------------------------------------- |
+| [CARA_MENJALANKAN.md](CARA_MENJALANKAN.md) | Semua mode menjalankan proyek: CLI, API lokal, Docker, dan multi-node             |
+| [PANDUAN_MANUAL.md](PANDUAN_MANUAL.md)     | Panduan langkah demi langkah secara manual dengan penjelasan detail tiap perintah |
+| [panduan-ngrok.md](panduan-ngrok.md)       | Konfigurasi Ngrok untuk membuka akses server lokal ke internet (multi-machine FL) |
+
+> Untuk menjalankan proyek pertama kali, disarankan membaca **[CARA_MENJALANKAN.md](CARA_MENJALANKAN.md)** terlebih dahulu.
+
+---
+
+## 6. Quickstart
+
+### Prasyarat
+
+- Python 3.9+
+- (Opsional) Docker & Docker Compose
+- (Opsional) Ngrok untuk akses publik
+
+### Instalasi
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+git clone https://github.com/julian34/FL-SISTER.git
+cd FL-Sc
+
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# Linux / macOS:
+source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-## Cara Menjalankan
+### Jalankan Simulasi (CLI)
 
 ```bash
 python main.py
 ```
 
-## Menjalankan Sebagai API (lokal)
-
-Project ini sekarang juga menyediakan HTTP API dengan FastAPI.
+### Jalankan sebagai API
 
 ```bash
 uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
-Endpoint utama:
+### Jalankan dengan Docker
 
-- `GET /health` cek service hidup
-- `POST /train` jalankan federated training
-- `GET /last-result` lihat hasil training terakhir
+```bash
+docker compose -f docker-compose.server.yml up -d --build
+```
+
+Untuk panduan mode lain (multi-node, monitoring, ngrok), lihat [CARA_MENJALANKAN.md](CARA_MENJALANKAN.md).
+
+---
+
+## 7. Endpoint API
+
+| Method | Endpoint       | Deskripsi                     |
+| ------ | -------------- | ----------------------------- |
+| GET    | `/health`      | Cek status service            |
+| POST   | `/train`       | Jalankan federated training   |
+| GET    | `/last-result` | Lihat hasil training terakhir |
 
 Contoh trigger training:
 
@@ -70,33 +169,14 @@ curl -X POST http://127.0.0.1:8000/train \
     -d '{"n_rounds": 5, "local_epochs": 3}'
 ```
 
-## Docker Container
+---
 
-Build image:
+## 8. Lisensi & Atribusi
 
-```bash
-docker build -t fl-scam-api .
-```
+Proyek ini dikembangkan berdasarkan repo asli:
 
-Jalankan container:
-
-```bash
-docker run -d --name fl-scam-api -p 8000:8000 fl-scam-api
-```
-
-Atau pakai docker compose:
-
-```bash
-docker compose up -d --build
-```
-
-## Akses dari Jaringan LAN
-
-Karena service di-bind ke `0.0.0.0` dan port di-publish `8000:8000`, API bisa diakses dari perangkat lain dalam LAN:
-
-```bash
-http://IP_LOKAL_PC_ANDA:8000/health
-```
+> **FL-Sc** oleh [3k0sakti](https://github.com/3k0sakti)  
+> [https://github.com/3k0sakti/FL-Sc](https://github.com/3k0sakti/FL-Sc)
 
 Langkah cek cepat:
 
