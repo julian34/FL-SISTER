@@ -1,0 +1,13 @@
+services:
+  fl-scam-api:
+    build: .
+    container_name: fl-scam-api
+    command: uvicorn server_api:app --host 0.0.0.0 --port 8000
+    environment:
+      NUM_CLIENTS: 2
+      N_ROUNDS: 10
+      INPUT_DIM: 10
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./checkpoints:/app/checkpoints

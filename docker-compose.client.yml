@@ -1,0 +1,15 @@
+services:
+  fl-client:
+    build: .
+    container_name: fl_client_${CLIENT_ID}
+    command: python client_worker.py
+    environment:
+      CLIENT_ID: ${CLIENT_ID}
+      SERVER_URL: ${SERVER_URL}
+      DATA_PATH: ${DATA_PATH}
+      LOCAL_EPOCHS: 5
+      BATCH_SIZE: 32
+      LEARNING_RATE: 0.01
+      POLL_SECONDS: 5
+    volumes:
+      - ./data:/app/data
