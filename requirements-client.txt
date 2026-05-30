@@ -1,0 +1,22 @@
+```txt
+# ================================
+# FL-SISTER Client Requirements
+# ================================
+# Digunakan untuk:
+# 1. Generate data client
+# 2. Training lokal di sisi client
+# 3. Mengirim update model ke server FL
+
+# Core numerical computing
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Machine learning utilities
+scikit-learn>=1.3.0
+
+# Deep learning backend
+torch>=2.1.0
+
+# HTTP client untuk komunikasi ke server
+requests>=2.31.0
+```

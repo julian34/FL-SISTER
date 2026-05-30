@@ -1,69 +1,54 @@
-# Menjalankan Client FL-SISTER Tanpa Docker
+# Panduan Client — FL-SISTER Federated Learning
 
-Dokumen ini menjelaskan cara menjalankan **client Federated Learning (FL-SISTER)** tanpa Docker. Docker tetap dapat digunakan untuk menjalankan server, Prometheus, dan Grafana, sedangkan client dapat dijalankan langsung menggunakan Python di laptop masing-masing.
+Dokumen ini menjelaskan cara menjalankan sisi **client** pada proyek FL-SISTER. Fokus utama panduan ini adalah pembuatan data lokal client dan proses pengiriman update model ke server federated learning.
+
+Client bertugas melakukan training lokal menggunakan data masing-masing. Data mentah tidak dikirim ke server. Client hanya mengirim parameter atau bobot model hasil training lokal beserta informasi pendukung seperti `client_id`, `round`, `n_samples`, dan `loss`.
 
 ---
 
-## 1. Gambaran Umum
+## 1. Peran Client dalam Sistem
 
-Pada sistem FL-SISTER, client bertugas mengambil model global dari server, melakukan pelatihan lokal menggunakan dataset masing-masing, lalu mengirimkan update model kembali ke server.
+Dalam arsitektur federated learning, client adalah node yang menyimpan data lokal dan melakukan proses pelatihan model secara mandiri. Server hanya mengatur distribusi model global, menerima update dari client, lalu melakukan agregasi menggunakan pendekatan FedAvg.
 
-Alur komunikasi:
+Alur kerja client:
 
 ```text
-Client Python
-    ↓
-GET /global-model
-    ↓
-Training lokal
-    ↓
-POST /submit-update
-    ↓
+Client mengambil model global dari server
+        ↓
+Client melakukan training lokal
+        ↓
+Client menghitung loss dan update bobot model
+        ↓
+Client mengirim update ke server
+        ↓
+Server menunggu update dari seluruh client
+        ↓
 Server melakukan agregasi FedAvg
-    ↓
-Prometheus membaca /metrics
-    ↓
-Grafana menampilkan monitoring
 ```
 
-Client **tidak wajib menggunakan Docker** karena file `client_worker.py` dapat dijalankan langsung menggunakan Python.
+Dengan mekanisme ini, data lokal tetap berada di sisi client. Hal ini sesuai dengan prinsip utama federated learning, yaitu pelatihan model dilakukan secara terdistribusi tanpa memusatkan data mentah ke server.
 
 ---
 
-## 2. Kebutuhan Sistem
+## 2. Prasyarat Client
 
-Pastikan perangkat client sudah memiliki:
+Sebelum menjalankan client, pastikan perangkat client sudah memiliki:
 
 ```text
-Python 3.10 atau lebih baru
-pip
+Python 3.9 atau versi lebih baru
 Git
-Koneksi internet atau jaringan lokal ke server
-Dataset client dalam format CSV
+Koneksi ke server federated learning
+File dataset lokal client
 ```
 
-Jika menggunakan GPU lokal, pastikan PyTorch sudah sesuai dengan versi CUDA pada laptop.
-
----
-
-## 3. Clone Repository
+Clone repository:
 
 ```bash
-git clone https://github.com/julian34/FL-SISTER.git
+git clone -b "dev/-Grafana+Prometheus" https://github.com/julian34/FL-SISTER.git
 cd FL-SISTER
-git checkout "dev/-Grafana+Prometheus"
 ```
 
-Jika branch memiliki karakter khusus dan perintah gagal, gunakan:
-
-```bash
-git branch -a
-git checkout dev/-Grafana+Prometheus
-```
-
----
-
-## 4. Membuat Virtual Environment
+Buat virtual environment:
 
 ### Windows PowerShell
 
@@ -79,172 +64,239 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
----
-
-## 5. Install Dependency
+Install dependency:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Jika instalasi PyTorch gagal, install PyTorch sesuai perangkat.
-
-### CPU Only
-
-```bash
-pip install torch torchvision torchaudio
-```
-
-### CUDA
-
-Cek versi CUDA terlebih dahulu:
-
-```bash
-nvidia-smi
-```
-
-Lalu install PyTorch sesuai versi CUDA dari dokumentasi resmi PyTorch.
-
-Contoh untuk CUDA 12.1:
-
-```bash
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
-
 ---
 
-## 6. Menyiapkan Dataset Client
+# Bagian 1 — Generator Data Client
 
-Setiap client membutuhkan file CSV masing-masing.
+## 3. Fungsi Generator Data
 
-Contoh:
+File `data_generator.py` digunakan untuk membuat dataset sintetis untuk simulasi deteksi scam. Dataset dibuat dalam bentuk non-IID, artinya distribusi data antar-client tidak sama.
+
+Secara default, generator membuat tiga file:
 
 ```text
 data/client1_data.csv
 data/client2_data.csv
-data/client3_data.csv
+data/test_data.csv
 ```
 
-Struktur dataset harus memiliki:
+Penjelasan file:
 
-```text
-fitur_1, fitur_2, fitur_3, ..., label
-```
+| File               | Fungsi                                           |
+| ------------------ | ------------------------------------------------ |
+| `client1_data.csv` | Data lokal untuk Client 1                        |
+| `client2_data.csv` | Data lokal untuk Client 2                        |
+| `test_data.csv`    | Data uji global untuk evaluasi server            |
+| `label`            | Kolom target klasifikasi, wajib ada pada dataset |
 
-Kolom `label` wajib ada karena digunakan sebagai target klasifikasi.
-
-Contoh sederhana:
-
-```csv
-feature_1,feature_2,feature_3,label
-0.12,0.34,0.55,0
-0.75,0.21,0.48,1
-0.44,0.61,0.19,0
-```
+Client 1 dan Client 2 memiliki karakteristik data yang berbeda. Client 1 merepresentasikan pola pesan pendek seperti SMS, sedangkan Client 2 merepresentasikan pola pesan lebih panjang seperti email. Perbedaan distribusi ini digunakan untuk mensimulasikan kondisi federated learning yang lebih realistis.
 
 ---
 
-## 7. Menjalankan Server
+## 4. Menjalankan Generator Data
 
-Server dapat dijalankan dengan Docker atau tanpa Docker.
-
-### Opsi A — Server Menggunakan Docker
+Jalankan perintah berikut dari root project:
 
 ```bash
-docker compose -f docker-compose.monitoring.yml up -d --build
+python data_generator.py
 ```
 
-Setelah berjalan, server tersedia di:
+Jika berhasil, akan terbentuk folder dan file berikut:
 
 ```text
-http://localhost:8000
+data/
+├── client1_data.csv
+├── client2_data.csv
+└── test_data.csv
 ```
 
-Cek endpoint metrics:
-
-```text
-http://localhost:8000/metrics
-```
-
-### Opsi B — Server Tanpa Docker
-
-```bash
-uvicorn server_api:app --host 0.0.0.0 --port 8000
-```
-
-Jika ingin menentukan jumlah client:
+Untuk memastikan file sudah terbentuk:
 
 ### Windows PowerShell
 
 ```powershell
-$env:NUM_CLIENTS="2"
-$env:N_ROUNDS="10"
-uvicorn server_api:app --host 0.0.0.0 --port 8000
+dir data
 ```
 
 ### Linux / macOS
 
 ```bash
-export NUM_CLIENTS=2
-export N_ROUNDS=10
-uvicorn server_api:app --host 0.0.0.0 --port 8000
+ls data
 ```
 
 ---
 
-## 8. Menjalankan Client Tanpa Docker
+## 5. Validasi Dataset Client
 
-### Client 1 — Windows PowerShell
+Setiap file dataset client harus memiliki kolom fitur dan kolom target `label`.
+
+Contoh struktur dataset:
+
+```text
+msg_length,num_links,has_phone_num,money_mention,urgency_words,all_caps_ratio,exclamation_count,suspicious_keywords,sender_known,reply_requested,label
+```
+
+Kolom `label` wajib ada karena digunakan sebagai target klasifikasi. Jika kolom `label` tidak tersedia, proses client akan berhenti dan menampilkan error.
+
+Validasi cepat menggunakan Python:
+
+```bash
+python -c "import pandas as pd; df=pd.read_csv('data/client1_data.csv'); print(df.head()); print(df.columns)"
+```
+
+Untuk Client 2:
+
+```bash
+python -c "import pandas as pd; df=pd.read_csv('data/client2_data.csv'); print(df.head()); print(df.columns)"
+```
+
+---
+
+## 6. Pembagian Dataset ke Client
+
+Untuk simulasi dua client:
+
+```text
+Client 1 menggunakan data/client1_data.csv
+Client 2 menggunakan data/client2_data.csv
+```
+
+Jika client dijalankan di laptop berbeda, host dapat mengirim file dataset sesuai identitas client. Contoh:
+
+```text
+Laptop Client 1 → client1_data.csv
+Laptop Client 2 → client2_data.csv
+```
+
+Pada skenario federated learning, setiap client sebaiknya hanya memegang data miliknya sendiri.
+
+---
+
+# Bagian 2 — Pengiriman Update ke Server
+
+## 7. Pastikan Server Sudah Aktif
+
+Sebelum client dijalankan, server federated learning harus sudah aktif.
+
+Cek koneksi ke server:
+
+```bash
+curl http://localhost:8000/health
+```
+
+Jika server berada di laptop lain, gunakan IP server:
+
+```bash
+curl http://192.168.1.10:8000/health
+```
+
+Jika server menggunakan Ngrok:
+
+```bash
+curl https://alamat-ngrok-anda.ngrok-free.app/health
+```
+
+Client tidak harus menjalankan Docker. Client cukup menjalankan Python lokal selama dapat mengakses alamat server.
+
+---
+
+## 8. Konfigurasi Environment Variable Client
+
+Client membaca konfigurasi dari environment variable berikut:
+
+| Variable        | Fungsi                              | Contoh                  |
+| --------------- | ----------------------------------- | ----------------------- |
+| `CLIENT_ID`     | Identitas unik client               | `1`                     |
+| `SERVER_URL`    | Alamat server federated learning    | `http://localhost:8000` |
+| `DATA_PATH`     | Lokasi file dataset lokal           | `data/client1_data.csv` |
+| `LOCAL_EPOCHS`  | Jumlah epoch training lokal         | `5`                     |
+| `BATCH_SIZE`    | Ukuran batch training               | `32`                    |
+| `LEARNING_RATE` | Nilai learning rate                 | `0.01`                  |
+| `POLL_SECONDS`  | Interval client mengecek round baru | `5`                     |
+
+Konfigurasi paling penting adalah:
+
+```text
+CLIENT_ID
+SERVER_URL
+DATA_PATH
+```
+
+Setiap client wajib memiliki `CLIENT_ID` yang berbeda.
+
+---
+
+## 9. Menjalankan Client 1
+
+### Windows PowerShell
 
 ```powershell
 $env:CLIENT_ID="1"
 $env:SERVER_URL="http://localhost:8000"
 $env:DATA_PATH="data/client1_data.csv"
+$env:LOCAL_EPOCHS="5"
+$env:BATCH_SIZE="32"
+$env:LEARNING_RATE="0.01"
 python client_worker.py
 ```
 
-### Client 2 — Windows PowerShell
-
-Buka terminal PowerShell baru:
-
-```powershell
-$env:CLIENT_ID="2"
-$env:SERVER_URL="http://localhost:8000"
-$env:DATA_PATH="data/client2_data.csv"
-python client_worker.py
-```
-
-### Client 1 — Linux / macOS
+### Linux / macOS
 
 ```bash
 export CLIENT_ID=1
 export SERVER_URL=http://localhost:8000
 export DATA_PATH=data/client1_data.csv
-python client_worker.py
-```
-
-### Client 2 — Linux / macOS
-
-```bash
-export CLIENT_ID=2
-export SERVER_URL=http://localhost:8000
-export DATA_PATH=data/client2_data.csv
+export LOCAL_EPOCHS=5
+export BATCH_SIZE=32
+export LEARNING_RATE=0.01
 python client_worker.py
 ```
 
 ---
 
-## 9. Menjalankan Client dari Laptop Teman
+## 10. Menjalankan Client 2
 
-Jika server berjalan di laptop utama dan client dijalankan dari laptop teman, gunakan IP laptop server.
+### Windows PowerShell
 
-Contoh IP server:
+```powershell
+$env:CLIENT_ID="2"
+$env:SERVER_URL="http://localhost:8000"
+$env:DATA_PATH="data/client2_data.csv"
+$env:LOCAL_EPOCHS="5"
+$env:BATCH_SIZE="32"
+$env:LEARNING_RATE="0.01"
+python client_worker.py
+```
+
+### Linux / macOS
+
+```bash
+export CLIENT_ID=2
+export SERVER_URL=http://localhost:8000
+export DATA_PATH=data/client2_data.csv
+export LOCAL_EPOCHS=5
+export BATCH_SIZE=32
+export LEARNING_RATE=0.01
+python client_worker.py
+```
+
+---
+
+## 11. Menjalankan Client dari Laptop Berbeda
+
+Jika server berjalan di laptop utama dengan IP:
 
 ```text
 192.168.1.10
 ```
 
-Maka client menggunakan:
+Maka client di laptop lain menggunakan:
 
 ```powershell
 $env:CLIENT_ID="1"
@@ -253,188 +305,139 @@ $env:DATA_PATH="data/client1_data.csv"
 python client_worker.py
 ```
 
-Pastikan firewall laptop server mengizinkan akses ke port:
-
-```text
-8000
-```
+Pastikan firewall laptop server mengizinkan akses ke port `8000`.
 
 ---
 
-## 10. Menjalankan Client Menggunakan Ngrok
+## 12. Menjalankan Client Menggunakan Ngrok
 
-Jika client berada di jaringan berbeda, server dapat dibuka menggunakan Ngrok.
-
-Di laptop server:
-
-```bash
-ngrok http 8000
-```
-
-Ngrok akan menghasilkan URL seperti:
+Jika server diekspos menggunakan Ngrok, contoh URL server:
 
 ```text
-https://xxxx-xxxx-xxxx.ngrok-free.app
+https://abc123.ngrok-free.app
 ```
 
-Client menggunakan URL tersebut:
+Maka client menggunakan:
 
 ```powershell
 $env:CLIENT_ID="1"
-$env:SERVER_URL="https://xxxx-xxxx-xxxx.ngrok-free.app"
+$env:SERVER_URL="https://abc123.ngrok-free.app"
 $env:DATA_PATH="data/client1_data.csv"
 python client_worker.py
 ```
 
-Client tidak perlu menjalankan Ngrok. Ngrok hanya dijalankan pada laptop server.
-
----
-
-## 11. Menambah Client Baru
-
-Repo default menggunakan 2 client, tetapi dapat dikembangkan menjadi lebih banyak client.
-
-### Ubah jumlah client pada server
-
-Jika menggunakan Docker, ubah `NUM_CLIENTS` pada `docker-compose.monitoring.yml`:
-
-```yaml
-environment:
-  NUM_CLIENTS: 3
-```
-
-Jika menjalankan server manual:
+Untuk Client 2:
 
 ```powershell
-$env:NUM_CLIENTS="3"
-uvicorn server_api:app --host 0.0.0.0 --port 8000
-```
-
-### Tambahkan dataset baru
-
-```text
-data/client3_data.csv
-```
-
-### Jalankan client ke-3
-
-```powershell
-$env:CLIENT_ID="3"
-$env:SERVER_URL="http://localhost:8000"
-$env:DATA_PATH="data/client3_data.csv"
+$env:CLIENT_ID="2"
+$env:SERVER_URL="https://abc123.ngrok-free.app"
+$env:DATA_PATH="data/client2_data.csv"
 python client_worker.py
 ```
 
----
-
-## 12. Hubungan Client dengan Grafana
-
-Client tidak terhubung langsung ke Grafana.
-
-Alurnya:
-
-```text
-Client mengirim update ke FastAPI Server
-Server menyimpan metric di endpoint /metrics
-Prometheus mengambil metric dari /metrics
-Grafana membaca data dari Prometheus
-```
-
-Jadi, selama client berhasil mengirim update ke server, Grafana akan menampilkan aktivitas client.
-
-Metric penting yang dapat dipantau:
-
-```text
-fl_client_update_total
-fl_client_loss
-fl_collected_updates
-fl_completed_round
-```
+Client tidak perlu menjalankan Ngrok. Ngrok cukup dijalankan pada sisi server.
 
 ---
 
-## 13. Validasi
+## 13. Proses Teknis Pengiriman ke Server
 
-### Cek server
-
-```text
-http://localhost:8000
-```
-
-### Cek metrics
+Saat `client_worker.py` berjalan, proses yang dilakukan adalah:
 
 ```text
-http://localhost:8000/metrics
+1. Client membaca dataset lokal dari DATA_PATH
+2. Client melakukan normalisasi lokal menggunakan StandardScaler
+3. Client meminta model global dari SERVER_URL/global-model
+4. Client menerima bobot model global
+5. Client melakukan training lokal
+6. Client menghitung loss
+7. Client membuat payload update
+8. Client mengirim update ke SERVER_URL/submit-update
+9. Client menunggu round berikutnya
 ```
 
-### Cek Prometheus
+Payload yang dikirim client ke server berisi:
 
-```text
-http://localhost:9090
+```json
+{
+  "client_id": "1",
+  "round": 1,
+  "n_samples": 600,
+  "weights": {},
+  "loss": 0.4123
+}
 ```
 
-Query Prometheus:
+Keterangan:
 
-```promql
-fl_completed_round
-```
+| Field       | Fungsi                            |
+| ----------- | --------------------------------- |
+| `client_id` | Identitas client pengirim         |
+| `round`     | Nomor round federated learning    |
+| `n_samples` | Jumlah data lokal client          |
+| `weights`   | Bobot model hasil training lokal  |
+| `loss`      | Nilai loss setelah training lokal |
 
-```promql
-fl_collected_updates
-```
-
-```promql
-fl_client_loss
-```
-
-```promql
-sum by (client_id) (fl_client_update_total)
-```
-
-### Cek Grafana
-
-```text
-http://localhost:3000
-```
-
-Login default:
-
-```text
-Username: admin
-Password: admin
-```
+Data mentah seperti isi CSV tidak dikirim ke server.
 
 ---
 
-## 14. Troubleshooting
+## 14. Contoh Output Client
 
-### Client gagal connect ke server
-
-Cek nilai `SERVER_URL`.
-
-```powershell
-echo $env:SERVER_URL
-```
-
-Pastikan server aktif:
+Jika client berhasil terhubung ke server, output akan terlihat seperti berikut:
 
 ```text
-http://localhost:8000
+[Client 1] Loading local data: data/client1_data.csv
+[Client 1] Connected to server: http://localhost:8000
+[Client 1] Local samples: 600
+[Client 1] Starting local training for round 1
+[Client 1] Round 1 submitted | loss=0.4532 | server={'status': 'waiting'}
 ```
 
-Jika client dari laptop lain, gunakan IP server, bukan `localhost`.
+Jika seluruh client sudah mengirim update, server akan melakukan agregasi dan client masuk ke round berikutnya.
+
+---
+
+## 15. Masalah Umum
+
+### Server belum aktif
+
+Gejala:
+
+```text
+Server belum siap / koneksi gagal
+```
+
+Solusi:
+
+```text
+Pastikan server sudah berjalan.
+Pastikan SERVER_URL benar.
+Pastikan port 8000 bisa diakses.
+```
 
 ---
 
 ### Dataset tidak ditemukan
 
-Pastikan `DATA_PATH` benar.
+Gejala:
 
-```powershell
-$env:DATA_PATH="data/client1_data.csv"
+```text
+FileNotFoundError: data/client1_data.csv
 ```
 
-Cek file:
+Solusi:
+
+```bash
+python data_generator.py
+```
+
+Lalu cek ulang:
+
+```bash
+ls data
+```
+
+atau pada Windows:
 
 ```powershell
 dir data
@@ -444,62 +447,83 @@ dir data
 
 ### Kolom label tidak ada
 
-Pastikan dataset memiliki kolom:
+Gejala:
 
 ```text
-label
+Dataset harus memiliki kolom 'label'.
 ```
 
-Jika tidak ada, sesuaikan nama kolom target di dataset atau ubah kode pembacaan dataset pada `client_worker.py`.
-
----
-
-### Server menunggu terus dan round tidak selesai
-
-Cek nilai `NUM_CLIENTS`.
-
-Jika server dikonfigurasi:
+Solusi:
 
 ```text
-NUM_CLIENTS=3
-```
-
-maka harus ada 3 client yang mengirim update. Jika hanya 2 client aktif, agregasi tidak akan berjalan.
-
----
-
-### Grafana tidak menampilkan data
-
-Pastikan:
-
-```text
-Server aktif
-Client sudah mengirim update
-Endpoint /metrics berisi data FL
-Prometheus target berstatus UP
-Grafana datasource mengarah ke Prometheus
-```
-
-Cek Prometheus target:
-
-```text
-http://localhost:9090/targets
+Pastikan file CSV memiliki kolom label.
+Jangan menghapus kolom label dari dataset client.
+Gunakan data hasil generator jika masih dalam tahap simulasi.
 ```
 
 ---
 
-## 15. Kesimpulan
+### Round tidak selesai
 
-Client FL-SISTER dapat dijalankan tanpa Docker karena proses training lokal dijalankan langsung melalui `client_worker.py`. Docker hanya diperlukan jika ingin mempermudah deployment server, Prometheus, dan Grafana.
-
-Konfigurasi yang direkomendasikan untuk pengujian kolaboratif:
+Penyebab umum:
 
 ```text
-Server utama    : FastAPI + Prometheus + Grafana
-Client 1        : Python lokal
-Client 2        : Python lokal
-Client tambahan : Python lokal
-Komunikasi      : HTTP melalui LAN atau Ngrok
+Jumlah client yang aktif lebih sedikit dari NUM_CLIENTS pada server.
 ```
 
-Dengan konfigurasi ini, simulasi Federated Learning dapat dilakukan oleh beberapa perangkat tanpa harus mewajibkan setiap client menggunakan Docker.
+Contoh:
+
+```text
+Server diset NUM_CLIENTS=2
+Tetapi hanya Client 1 yang berjalan
+Maka server akan terus menunggu update dari Client 2
+```
+
+Solusi:
+
+```text
+Jalankan semua client sesuai konfigurasi NUM_CLIENTS.
+Pastikan setiap client memakai CLIENT_ID berbeda.
+```
+
+---
+
+## 16. Ringkasan Perintah Utama
+
+Generate data:
+
+```bash
+python data_generator.py
+```
+
+Jalankan Client 1:
+
+```powershell
+$env:CLIENT_ID="1"
+$env:SERVER_URL="http://localhost:8000"
+$env:DATA_PATH="data/client1_data.csv"
+python client_worker.py
+```
+
+Jalankan Client 2:
+
+```powershell
+$env:CLIENT_ID="2"
+$env:SERVER_URL="http://localhost:8000"
+$env:DATA_PATH="data/client2_data.csv"
+python client_worker.py
+```
+
+Jika memakai Ngrok:
+
+```powershell
+$env:SERVER_URL="https://alamat-ngrok-anda.ngrok-free.app"
+```
+
+---
+
+## 17. Kesimpulan
+
+Client pada FL-SISTER dapat berjalan tanpa Docker. Client hanya membutuhkan Python, dependency project, dataset lokal, dan alamat server federated learning. Generator data digunakan untuk membuat dataset lokal client, sedangkan `client_worker.py` digunakan untuk mengambil model global, melakukan training lokal, dan mengirim update model ke server.
+
+Prinsip utama yang harus dijaga adalah setiap client memiliki data lokal sendiri, `CLIENT_ID` berbeda, dan `SERVER_URL` mengarah ke server yang aktif.
