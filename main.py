@@ -56,6 +56,22 @@ def _section(round_num: int, total: int) -> str:
     return f"\n{'─' * 62}\n  ROUND {round_num}/{total}\n{'─' * 62}"
 
 
+def _print_client_weights(client_id: int, weights: dict) -> None:
+    """Print per-layer weight statistics for a client."""
+    import torch
+    print(f"  [Client {client_id}]  Weight Summary:")
+    print(f"  {'Layer':<24} {'Shape':<14} {'Mean':>12} {'Std':>12} {'L2 Norm':>12}")
+    print(f"  {'─'*24}  {'─'*14}  {'─'*12}  {'─'*12}  {'─'*12}")
+    for name, tensor in weights.items():
+        t = tensor.float()
+        std_val = t.std().item() if t.numel() > 1 else 0.0
+        print(
+            f"  {name:<24} {str(tuple(t.shape)):<14} "
+            f"{t.mean().item():>12.6f} {std_val:>12.6f} "
+            f"{t.norm().item():>12.6f}"
+        )
+
+
 # ── Main ────────────────────────────────────────────────────────────────────
 def main() -> None:
     print(_header("FEDERATED LEARNING  ·  SCAM DETECTION"))
@@ -144,7 +160,9 @@ def main() -> None:
                 f"  [Client {c.client_id}]  local training done  "
                 f"loss={loss:.4f}  local_acc={local_acc:.4f}"
             )
-            updated_weights.append(c.get_weights())
+            w = c.get_weights()
+            _print_client_weights(c.client_id, w)
+            updated_weights.append(w)
             updated_sizes.append(c.n_samples)
 
         # 4c. Aggregate (FedAvg)

@@ -8,8 +8,7 @@ ENV PYTHONUNBUFFERED=1
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --timeout 300 --retries 5 \
     torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir --timeout 300 --retries 5 \
-    numpy>=1.24.0 pandas>=2.0.0 scikit-learn>=1.3.0 fastapi>=0.110.0 "uvicorn[standard]>=0.29.0"
+    pip install --no-cache-dir --timeout 300 --retries 5 -r requirements.txt
 
 COPY . .
 
