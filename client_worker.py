@@ -64,10 +64,16 @@ def main():
             global_payload = response.json()
 
             if global_payload.get("completed"):
-                print(f"[Client {CLIENT_ID}] Training completed by server.")
-                break
+                print(f"[Client {CLIENT_ID}] Training completed. Waiting for server reset...")
+                time.sleep(POLL_SECONDS)
+                continue
 
             round_number = int(global_payload["round"])
+
+            # Server was reset; allow re-participation from round 1
+            if round_number < last_submitted_round:
+                print(f"[Client {CLIENT_ID}] Server reset detected. Resetting local round counter.")
+                last_submitted_round = 0
 
             if round_number <= last_submitted_round:
                 time.sleep(POLL_SECONDS)

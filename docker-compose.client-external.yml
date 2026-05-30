@@ -1,0 +1,29 @@
+## docker-compose.client-external.yml
+## Digunakan untuk client yang berjalan di luar jaringan Docker lokal
+## (mesin berbeda / jaringan publik via ngrok, IP publik, dll.)
+##
+## Ganti SERVER_URL dengan URL server yang dapat diakses dari luar, contoh:
+##   - https://xxxx.ngrok-free.app   (ngrok)
+##   - http://<IP_PUBLIK_SERVER>:8000
+##
+## Jalankan dengan:
+##   CLIENT_ID=3 DATA_PATH=data/clientX_data.csv docker compose -f docker-compose.client-external.yml up --build
+
+services:
+  fl-client-external:
+    build: .
+    container_name: fl_client_external_${CLIENT_ID:-3}
+    command: python client_worker.py
+    environment:
+      CLIENT_ID: ${CLIENT_ID:-3}
+      # SERVER_URL harus diisi dengan URL eksternal server FL
+      SERVER_URL: ${SERVER_URL:-https://your-ngrok-or-public-url.example.com}
+      DATA_PATH: ${DATA_PATH:-data/client1_data.csv}
+      LOCAL_EPOCHS: ${LOCAL_EPOCHS:-5}
+      BATCH_SIZE: ${BATCH_SIZE:-32}
+      LEARNING_RATE: ${LEARNING_RATE:-0.01}
+      POLL_SECONDS: ${POLL_SECONDS:-5}
+    volumes:
+      - ./data:/app/data
+    # Tidak terhubung ke jaringan Docker internal — menggunakan koneksi host default
+    # sehingga bisa mengakses server melalui internet/ngrok.

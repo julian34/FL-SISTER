@@ -1,12 +1,12 @@
 services:
-  fl-client:
+  fl-client2:
     build: .
-    container_name: fl_client_${CLIENT_ID}
+    container_name: fl_client_2
     command: python client_worker.py
     environment:
-      CLIENT_ID: ${CLIENT_ID}
-      SERVER_URL: ${SERVER_URL:-http://fl-scam-api:8000}
-      DATA_PATH: ${DATA_PATH}
+      CLIENT_ID: "2"
+      SERVER_URL: http://fl-scam-api:8000
+      DATA_PATH: data/client2_data.csv
       LOCAL_EPOCHS: 5
       BATCH_SIZE: 32
       LEARNING_RATE: 0.01

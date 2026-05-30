@@ -161,25 +161,45 @@ docker compose -f docker-compose.monitoring.yml up -d --build
 | Prometheus | http://localhost:9090 |
 | Grafana    | http://localhost:3000 |
 
-### 4c. Menjalankan Client via Docker
+### 4c. Menjalankan Client via Docker (dalam jaringan yang sama)
 
-Setelah server berjalan, jalankan client (ganti `SERVER_URL` dengan IP host jika di mesin berbeda):
+Setiap client memiliki file Compose tersendiri. Jalankan di terminal terpisah setelah server berjalan:
 
-```bash
-# Client 1
-CLIENT_ID=1 SERVER_URL=http://localhost:8000 DATA_PATH=data/client1_data.csv \
-  docker compose -f docker-compose.client.yml up --build
+```powershell
+# Client 1 (terminal kedua)
+docker compose -f docker-compose.client1.yml up --build
 
-# Client 2
-CLIENT_ID=2 SERVER_URL=http://localhost:8000 DATA_PATH=data/client2_data.csv \
-  docker compose -f docker-compose.client.yml up --build
+# Client 2 (terminal ketiga)
+docker compose -f docker-compose.client2.yml up --build
 ```
+
+> Kedua client terhubung ke jaringan Docker internal `fl-sc_fl-monitoring-net` dan menjangkau server melalui nama service `fl-scam-api`.
+
+### 4d. Menjalankan Client dari Luar Jaringan Docker (via URL Publik/Ngrok)
+
+Gunakan file `docker-compose.client-external.yml` untuk client yang berada di **mesin berbeda** atau di luar jaringan Docker. File ini tidak terhubung ke jaringan internal Docker sehingga komunikasi dilakukan melalui koneksi host biasa.
+
+```powershell
+# Ganti SERVER_URL dengan URL publik server (ngrok, IP publik, dll.)
+$env:CLIENT_ID="3"
+$env:SERVER_URL="https://xxxx.ngrok-free.app"
+$env:DATA_PATH="data/client1_data.csv"
+docker compose -f docker-compose.client-external.yml up --build
+```
+
+| Variabel     | Wajib  | Keterangan                                             |
+| ------------ | ------ | ------------------------------------------------------ |
+| `CLIENT_ID`  | Ya     | ID unik client (default: `3`)                          |
+| `SERVER_URL` | **Ya** | URL eksternal server FL (ngrok, IP publik, dll.)       |
+| `DATA_PATH`  | Ya     | Path file CSV data lokal (default: `client1_data.csv`) |
 
 ### Menghentikan semua container
 
-```bash
+```powershell
 docker compose -f docker-compose.monitoring.yml down
-docker compose -f docker-compose.client.yml down
+docker compose -f docker-compose.client1.yml down
+docker compose -f docker-compose.client2.yml down
+docker compose -f docker-compose.client-external.yml down
 ```
 
 ---
@@ -365,10 +385,11 @@ SERVER_URL=https://fl_client:password_rahasia@abcd-xxx.ngrok-free.app
 
 ## Ringkasan Perbandingan Mode
 
-| Mode                                   | Proses    | Jaringan           | Cocok untuk                   |
-| -------------------------------------- | --------- | ------------------ | ----------------------------- |
-| `python main.py`                       | 1         | Tidak ada          | Demo cepat, debugging         |
-| `uvicorn api:app`                      | 1         | HTTP lokal         | Testing API endpoint          |
-| `server_api` + `client_worker`         | 3+        | HTTP lokal/LAN     | Simulasi terdistribusi nyata  |
-| Docker Compose                         | Container | HTTP Docker bridge | Demo production, monitoring   |
-| `server_api` + Ngrok + `client_worker` | 3+        | Internet publik    | Client lintas jaringan/lokasi |
+| Mode                                   | Proses    | Jaringan        | Cocok untuk                   |
+| -------------------------------------- | --------- | --------------- | ----------------------------- |
+| `python main.py`                       | 1         | Tidak ada       | Demo cepat, debugging         |
+| `uvicorn api:app`                      | 1         | HTTP lokal      | Testing API endpoint          |
+| `server_api` + `client_worker`         | 3+        | HTTP lokal/LAN  | Simulasi terdistribusi nyata  |
+| Docker Compose (client1/client2)       | Container | Docker bridge   | Demo production, monitoring   |
+| Docker Compose (client-external)       | Container | Internet publik | Client di mesin/jaringan lain |
+| `server_api` + Ngrok + `client_worker` | 3+        | Internet publik | Client lintas jaringan/lokasi |

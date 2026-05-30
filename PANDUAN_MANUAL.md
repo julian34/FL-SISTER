@@ -68,6 +68,20 @@ requirements.txt
 data/
 ```
 
+### Buat folder checkpoints
+
+Folder ini dibutuhkan server untuk menyimpan checkpoint model dan sebagai volume mount Docker:
+
+```powershell
+# Windows (PowerShell)
+New-Item -ItemType Directory -Force -Path checkpoints
+```
+
+```bash
+# Linux / macOS
+mkdir -p checkpoints
+```
+
 ---
 
 ## 3. Setup Virtual Environment
@@ -532,6 +546,12 @@ docker images
 ---
 
 ### 13.2 Menjalankan Server
+
+Pastikan folder `checkpoints` sudah ada sebelum menjalankan server (dibutuhkan sebagai volume mount):
+
+```powershell
+New-Item -ItemType Directory -Force -Path checkpoints
+```
 
 Jalankan FL Server beserta API-nya:
 

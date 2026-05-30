@@ -201,3 +201,34 @@ def submit_update(update: ClientUpdate):
                 else "Update received, waiting for other clients"
             ),
         }
+
+
+@app.post("/reset")
+def reset_training():
+    """Reset server state so a new training session can begin from scratch."""
+    global submissions
+
+    with lock:
+        server.round = 0
+        server.accuracy_history.clear()
+        submissions = {}
+
+        checkpoint_path = "checkpoints/global_init.pt"
+        if os.path.exists(checkpoint_path):
+            state = torch.load(checkpoint_path, map_location="cpu")
+            server.global_model.load_state_dict(state)
+            loaded_checkpoint = True
+        else:
+            # Re-initialise with fresh random weights
+            server.global_model = server.global_model.__class__(input_dim=INPUT_DIM)
+            loaded_checkpoint = False
+
+        server.global_model.eval()
+        FL_COMPLETED_ROUND.set(0)
+        FL_COLLECTED_UPDATES.set(0)
+
+    return {
+        "reset": True,
+        "loaded_checkpoint": loaded_checkpoint,
+        "message": "Server reset. Training can now be started again from round 1.",
+    }

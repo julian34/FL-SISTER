@@ -11,6 +11,8 @@ services:
       - "8000:8000"
     volumes:
       - ./checkpoints:/app/checkpoints
+    networks:
+      - fl-monitoring-net
 
   prometheus:
     image: prom/prometheus:latest
@@ -21,14 +23,23 @@ services:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
     depends_on:
       - fl-scam-api
+    networks:
+      - fl-monitoring-net
 
   grafana:
     image: grafana/grafana:latest
     container_name: fl-grafana
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
     ports:
       - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+    networks:
+      - fl-monitoring-net
+
+networks:
+  fl-monitoring-net:
+    name: fl-sc_fl-monitoring-net
