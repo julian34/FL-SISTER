@@ -1,16 +1,16 @@
 services:
   fl-client:
     build: .
-    container_name: fl_client_${CLIENT_ID}
+    container_name: fl_client_${CLIENT_ID:-1}
     command: python client_worker.py
     environment:
       CLIENT_ID: ${CLIENT_ID}
       SERVER_URL: ${SERVER_URL:-http://fl-scam-api:8000}
       DATA_PATH: ${DATA_PATH}
-      LOCAL_EPOCHS: 5
-      BATCH_SIZE: 32
-      LEARNING_RATE: 0.01
-      POLL_SECONDS: 5
+      LOCAL_EPOCHS: ${LOCAL_EPOCHS:-5}
+      BATCH_SIZE: ${BATCH_SIZE:-32}
+      LEARNING_RATE: ${LEARNING_RATE:-0.01}
+      POLL_SECONDS: ${POLL_SECONDS:-5}
     volumes:
       - ./data:/app/data
     networks:

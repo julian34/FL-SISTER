@@ -1,16 +1,19 @@
 services:
   fl-scam-api:
     build: .
-    container_name: fl-scam-api
+    container_name: ${SERVER_CONTAINER_NAME:-fl-scam-api}
     command: uvicorn server_api:app --host 0.0.0.0 --port 8000
     environment:
-      NUM_CLIENTS: 2
-      N_ROUNDS: 10
-      INPUT_DIM: 10
+      NUM_CLIENTS: ${NUM_CLIENTS:-2}
+      N_ROUNDS: ${N_ROUNDS:-10}
+      INPUT_DIM: ${INPUT_DIM:-10}
+      PRETRAIN_EPOCHS: ${PRETRAIN_EPOCHS:-0}
+      PRETRAIN_DATA_PATH: ${PRETRAIN_DATA_PATH:-data/test_data.csv}
     ports:
-      - "8000:8000"
+      - "${SERVER_PORT:-8000}:8000"
     volumes:
       - ./checkpoints:/app/checkpoints
+      - ./data:/app/data
     networks:
       - fl-monitoring-net
 
@@ -18,7 +21,7 @@ services:
     image: prom/prometheus:latest
     container_name: fl-prometheus
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
     depends_on:
@@ -30,7 +33,10 @@ services:
     image: grafana/grafana:latest
     container_name: fl-grafana
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
     volumes:
       - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
       - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
